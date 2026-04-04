@@ -2,7 +2,9 @@ name: piratetok_live
 description: Connect to TikTok Live streams via WSS. Zero external dependencies, no signing server. Chat, gifts, likes, joins, and 60+ event types.
 version: 0.1.0
 repository: https://github.com/PirateTok/live-dart
-homepage: https://github.com/PirateTok/live-dart
+homepage: https://piratetok.boats
+funding:
+  - https://piratetok.boats/donate
 topics:
   - tiktok
   - websocket
