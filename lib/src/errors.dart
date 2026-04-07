@@ -41,3 +41,24 @@ class AgeRestrictedError extends PirateTokError {
           'age-restricted stream: 18+ room — pass session cookies to fetchRoomInfo()',
         );
 }
+
+class ProfilePrivateError extends PirateTokError {
+  final String username;
+  ProfilePrivateError(this.username)
+      : super('private account: $username');
+}
+
+class ProfileNotFoundError extends PirateTokError {
+  final String username;
+  ProfileNotFoundError(this.username)
+      : super('profile not found: $username');
+}
+
+class ProfileErrorError extends PirateTokError {
+  final int code;
+  ProfileErrorError(this.code) : super('profile statusCode=$code');
+}
+
+class ProfileScrapeError extends PirateTokError {
+  ProfileScrapeError(String reason) : super('profile scrape: $reason');
+}

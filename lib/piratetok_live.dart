@@ -9,4 +9,6 @@ export 'src/errors.dart';
 export 'src/events/types.dart' show EventType, TikTokEvent;
 export 'src/helpers/gift_streak.dart' show GiftStreakTracker, GiftStreakEvent;
 export 'src/helpers/like_accumulator.dart' show LikeAccumulator, LikeStats;
+export 'src/helpers/profile_cache.dart' show ProfileCache;
 export 'src/http/api.dart' show RoomIdResult, RoomInfo, StreamUrls, checkOnline, fetchRoomInfo;
+export 'src/http/sigi.dart' show SigiProfile, scrapeProfile;
