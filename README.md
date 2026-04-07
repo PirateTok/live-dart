@@ -120,6 +120,17 @@ dart run example/online_check.dart <username>     # check if user is live
 dart run example/stream_info.dart <username>      # fetch room metadata + stream URLs
 ```
 
+## Replay testing
+
+Deterministic cross-lib validation against binary WSS captures. Requires testdata from a separate repo:
+
+```bash
+git clone https://github.com/PirateTok/live-testdata ../live-testdata
+dart test
+```
+
+Tests skip gracefully if testdata is not found. You can also set `PIRATETOK_TESTDATA` to point to a custom location.
+
 ## License
 
 0BSD
