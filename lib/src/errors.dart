@@ -45,18 +45,18 @@ class AgeRestrictedError extends PirateTokError {
 class ProfilePrivateError extends PirateTokError {
   final String username;
   ProfilePrivateError(this.username)
-      : super('private account: $username');
+      : super('profile is private: @$username');
 }
 
 class ProfileNotFoundError extends PirateTokError {
   final String username;
   ProfileNotFoundError(this.username)
-      : super('profile not found: $username');
+      : super('profile not found: @$username');
 }
 
-class ProfileErrorError extends PirateTokError {
+class ProfileError extends PirateTokError {
   final int code;
-  ProfileErrorError(this.code) : super('profile statusCode=$code');
+  ProfileError(this.code) : super('profile fetch error: statusCode=$code');
 }
 
 class ProfileScrapeError extends PirateTokError {

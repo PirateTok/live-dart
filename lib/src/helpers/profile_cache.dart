@@ -66,7 +66,7 @@ class ProfileCache {
     } on PirateTokError catch (e) {
       if (e is ProfilePrivateError ||
           e is ProfileNotFoundError ||
-          e is ProfileErrorError) {
+          e is ProfileError) {
         _entries[key] = _CacheEntry.err(e);
       }
       rethrow;

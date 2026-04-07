@@ -113,7 +113,7 @@ SigiProfile _parseSigi(String html, String username) {
     case 10223:
       throw ProfileNotFoundError(username);
     default:
-      throw ProfileErrorError(statusCode);
+      throw ProfileError(statusCode);
   }
 
   final userInfo = detail['userInfo'] as Map<String, dynamic>? ?? {};
