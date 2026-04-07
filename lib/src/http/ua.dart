@@ -40,3 +40,30 @@ String systemTimezone() {
 
   return 'UTC';
 }
+
+/// Returns `(language, region)` from system locale.
+/// Uses `Platform.localeName`, falls back to `('en', 'US')`.
+(String, String) systemLocale() {
+  try {
+    final raw = Platform.localeName; // e.g. "en_US", "ro_RO.UTF-8"
+    if (raw.isEmpty || raw == 'C' || raw == 'POSIX') return ('en', 'US');
+    return _parsePosixLocale(raw);
+  } on UnsupportedError {
+    return ('en', 'US');
+  }
+}
+
+String systemLanguage() => systemLocale().$1;
+String systemRegion() => systemLocale().$2;
+
+(String, String) _parsePosixLocale(String s) {
+  // strip encoding: "en_US.UTF-8" -> "en_US"
+  final base = s.split('.').first;
+  // split on _ or -
+  final match = RegExp(r'^([a-zA-Z]{2,})[_-]([a-zA-Z]+)').firstMatch(base);
+  if (match != null) {
+    return (match.group(1)!.toLowerCase(), match.group(2)!.toUpperCase());
+  }
+  if (base.length >= 2) return (base.toLowerCase(), 'US');
+  return ('en', 'US');
+}
