@@ -31,15 +31,21 @@ class RawWebSocket {
 
   /// Connect to a WSS URL via manual TLS + HTTP upgrade.
   ///
+  /// When [proxy] is non-empty, opens a CONNECT tunnel through the proxy
+  /// before upgrading to TLS + WebSocket. Supports http:// and https:// proxies.
+  ///
   /// Throws [DeviceBlockedError] on DEVICE_BLOCKED handshake rejection.
   /// Throws [SocketException] on connection or upgrade failure.
   static Future<RawWebSocket> connect(
     String url, {
     Map<String, String>? headers,
+    String proxy = '',
   }) async {
     final uri = Uri.parse(url);
     final host = uri.host;
-    final socket = await SecureSocket.connect(host, 443);
+    final socket = proxy.isNotEmpty
+        ? await _connectViaProxy(proxy, host)
+        : await SecureSocket.connect(host, 443);
 
     final rng = Random();
     final wsKey = base64Encode(List.generate(16, (_) => rng.nextInt(256)));
@@ -115,6 +121,57 @@ class RawWebSocket {
 
     await ready.future;
     return ws;
+  }
+
+  /// Open a CONNECT tunnel through an HTTP proxy, then upgrade to TLS.
+  static Future<SecureSocket> _connectViaProxy(
+    String proxyUrl,
+    String targetHost,
+  ) async {
+    final proxyUri = Uri.parse(proxyUrl);
+    final proxyHost = proxyUri.host;
+    final proxyPort = proxyUri.hasPort ? proxyUri.port : 8080;
+
+    final plain = await Socket.connect(proxyHost, proxyPort);
+    plain.write('CONNECT $targetHost:443 HTTP/1.1\r\n'
+        'Host: $targetHost:443\r\n\r\n');
+    await plain.flush();
+
+    // Read CONNECT response. The proxy sends a short HTTP response then the
+    // tunnel is established. We listen chunk-by-chunk until we see \r\n\r\n.
+    final buf = <int>[];
+    final done = Completer<void>();
+    final sub = plain.listen(
+      (chunk) {
+        buf.addAll(chunk);
+        if (utf8.decode(buf, allowMalformed: true).contains('\r\n\r\n')) {
+          done.complete();
+        }
+      },
+      onError: (Object e) {
+        if (!done.isCompleted) done.completeError(e);
+      },
+      onDone: () {
+        if (!done.isCompleted) {
+          done.completeError(
+            const SocketException('proxy closed before CONNECT response'),
+          );
+        }
+      },
+    );
+
+    await done.future;
+    await sub.cancel();
+
+    final status = utf8.decode(buf, allowMalformed: true);
+    if (!status.startsWith('HTTP/1.1 200') &&
+        !status.startsWith('HTTP/1.0 200')) {
+      plain.destroy();
+      throw SocketException('proxy CONNECT failed: '
+          '${status.split('\r\n').first}');
+    }
+
+    return SecureSocket.secure(plain, host: targetHost);
   }
 
   /// Send a binary message.

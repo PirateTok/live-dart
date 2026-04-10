@@ -42,8 +42,8 @@ Future<void> connectWss({
   };
 
   // RawWebSocket throws DeviceBlockedError directly on DEVICE_BLOCKED.
-  // TODO: proxy support via CONNECT tunnel for raw WebSocket
-  final ws = await RawWebSocket.connect(wssUrl, headers: headers);
+  // Proxy uses CONNECT tunnel when specified.
+  final ws = await RawWebSocket.connect(wssUrl, headers: headers, proxy: proxy);
 
   // Send initial heartbeat + enter room
   ws.send(buildHeartbeat(roomId));

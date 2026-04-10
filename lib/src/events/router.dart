@@ -37,7 +37,7 @@ const _methodMap = {
   'WebcastHourlyRankMessage': EventType.hourlyRank,
   'WebcastMsgDetectMessage': EventType.msgDetect,
   'WebcastLinkMicFanTicketMethod': EventType.linkMicFanTicket,
-  'RoomVerifyMessage': EventType.roomVerify,
+  'WebcastRoomVerifyMessage': EventType.roomVerify,
   'WebcastOecLiveShoppingMessage': EventType.oecLiveShopping,
   'WebcastGiftBroadcastMessage': EventType.giftBroadcast,
   'WebcastRankTextMessage': EventType.rankText,
