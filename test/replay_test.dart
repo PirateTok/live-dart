@@ -104,20 +104,10 @@ String canonicalName(String dartType) => _eventTypeName[dartType] ?? dartType;
       return ('$env/captures', '$env/manifests');
     }
   }
-  // ../live-testdata relative to live-dart/
-  const rel = '../live-testdata';
-  if (Directory('$rel/captures').existsSync()) {
-    return ('$rel/captures', '$rel/manifests');
-  }
-  // dev fallback: ../../live-rs/captures
-  const dev = '../../live-rs/captures';
-  if (Directory(dev).existsSync()) {
-    return (dev, '$dev/manifests');
-  }
-  // dev fallback: ../live-rs/captures
-  const dev2 = '../live-rs/captures';
-  if (Directory(dev2).existsSync()) {
-    return (dev2, '$dev2/manifests');
+  // testdata/ in repo root
+  const local = 'testdata';
+  if (Directory('$local/captures').existsSync()) {
+    return ('$local/captures', '$local/manifests');
   }
   return null;
 }

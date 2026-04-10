@@ -125,7 +125,7 @@ dart run example/stream_info.dart <username>      # fetch room metadata + stream
 Deterministic cross-lib validation against binary WSS captures. Requires testdata from a separate repo:
 
 ```bash
-git clone https://github.com/PirateTok/live-testdata ../live-testdata
+git clone https://github.com/PirateTok/live-testdata testdata
 dart test
 ```
 

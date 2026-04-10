@@ -3,3 +3,4 @@ release.sh
 .dart_tool/
 build/
 .packages
+testdata/
