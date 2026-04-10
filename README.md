@@ -29,7 +29,7 @@ void main() async {
 
   client.on(EventType.like, (evt) {
     final nick = evt.data?['user']?['uniqueId'] ?? '?';
-    print('[like] $nick (${evt.data?['totalLikes']} total)');
+    print('[like] $nick x${evt.data?['count']} (${evt.data?['total']} total)');
   });
 
   // Connect — handles auth, room resolution, WSS, heartbeat, reconnection
@@ -82,6 +82,10 @@ final client = TikTokLiveClient("username_here")
     .maxRetries(10)                       // default 5
     .staleTimeout(Duration(seconds: 90))  // default 60s
     .userAgent("custom UA string")        // default: random from pool
+    .cookies("sessionid=xxx; sid_tt=xxx") // only for 18+ room info
+    .language("en")                       // default: system locale
+    .region("US")                         // default: system locale
+    .compress(false)                      // disable gzip for WSS payloads (default true)
     .proxy("socks5://127.0.0.1:1080");
 ```
 
@@ -102,6 +106,50 @@ final info18 = await fetchRoomInfo(result.roomId,
     cookies: "sessionid=abc; sid_tt=abc");
 ```
 
+## Helpers
+
+Stateful helpers for common patterns. Exported from the main package, never imported by the core pipeline.
+
+### GiftStreakTracker
+
+Computes per-event gift deltas from TikTok's running totals. Combo gifts fire multiple events during a streak with cumulative `repeatCount` values -- this helper tracks active streaks and gives you the delta.
+
+```dart
+final tracker = GiftStreakTracker();
+
+client.on(EventType.gift, (evt) {
+  final e = tracker.process(evt.data!);
+  if (e.isFinal) {
+    print('streak done: ${e.totalGiftCount} gifts, ${e.totalDiamondCount} diamonds');
+  } else if (e.eventGiftCount > 0) {
+    print('ongoing: +${e.eventGiftCount} (+${e.eventDiamondCount} diamonds)');
+  }
+});
+```
+
+### LikeAccumulator
+
+Monotonizes TikTok's inconsistent `total` field on like events. Different server shards send stale values causing backwards jumps -- this helper accumulates from the reliable per-event `count` field.
+
+```dart
+final likes = LikeAccumulator();
+
+client.on(EventType.like, (evt) {
+  final s = likes.process(evt.data!);
+  print('${s.accumulatedCount} likes accumulated (server says ${s.totalLikeCount})');
+});
+```
+
+### ProfileCache
+
+Wraps sigi profile scraping with TTL cache and automatic ttwid management. Fetches HD avatars, follower counts, bio, verified status.
+
+```dart
+final cache = ProfileCache(ttlMs: 300000); // 5 min TTL (default)
+final profile = await cache.fetch('username');
+print('${profile.nickname} — ${profile.followerCount} followers');
+```
+
 ## How it works
 
 1. Resolves username to room ID via TikTok JSON API
@@ -115,9 +163,11 @@ All protobuf encoding/decoding is hand-written -- no `.proto` files, no codegen,
 ## Examples
 
 ```bash
-dart run example/basic_chat.dart <username>       # connect + print chat events
-dart run example/online_check.dart <username>     # check if user is live
-dart run example/stream_info.dart <username>      # fetch room metadata + stream URLs
+dart run example/basic_chat.dart <username>        # connect + print chat events
+dart run example/online_check.dart <username>      # check if user is live
+dart run example/stream_info.dart <username>       # fetch room metadata + stream URLs
+dart run example/gift_streak.dart <username>       # gift combo tracking with diamond totals
+dart run example/profile_lookup.dart [username]    # fetch profile metadata + avatars (cached)
 ```
 
 ## Replay testing

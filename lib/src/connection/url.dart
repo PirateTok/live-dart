@@ -7,6 +7,7 @@ String buildWssUrl(
   String roomId, {
   String? language,
   String? region,
+  bool compress = true,
 }) {
   final rng = Random();
   final lastRtt = (100 + rng.nextDouble() * 100).toStringAsFixed(3);
@@ -29,7 +30,7 @@ String buildWssUrl(
     'app_name': 'tiktok_web',
     'sup_ws_ds_opt': '1',
     'update_version_code': '2.0.0',
-    'compress': 'gzip',
+    'compress': compress ? 'gzip' : '',
     'webcast_language': lang,
     'ws_direct': '1',
     'aid': '1988',

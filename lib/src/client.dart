@@ -20,6 +20,7 @@ class TikTokLiveClient {
   String? _cookies;
   String? _language;
   String? _region;
+  bool _compress = true;
   Completer<void>? _stop;
   final _listeners = <String, List<void Function(TikTokEvent)>>{};
 
@@ -97,6 +98,17 @@ class TikTokLiveClient {
     return this;
   }
 
+  /// Enable or disable gzip compression on the WSS connection.
+  ///
+  /// When enabled (default), the `compress` query param is set to `gzip`.
+  /// When disabled, it is set to an empty string. The `compress` key is
+  /// always present in the URL. The decode layer already handles both
+  /// compressed and uncompressed payloads via gzip magic-byte detection.
+  TikTokLiveClient compress(bool enabled) {
+    _compress = enabled;
+    return this;
+  }
+
   /// Register an event listener for the given event type.
   void on(String eventType, void Function(TikTokEvent) handler) {
     _listeners.putIfAbsent(eventType, () => []).add(handler);
@@ -140,6 +152,7 @@ class TikTokLiveClient {
         room.roomId,
         language: _language,
         region: _region,
+        compress: _compress,
       );
 
       var isDeviceBlocked = false;

@@ -442,27 +442,28 @@ void _assertGifts(String name, _ReplayResult r, Map<String, dynamic> mg) {
 
 // --- test runner ---
 
-void _runCaptureTest(String name) {
+void _runCaptureTest(String name, {String? captureFile}) {
+  final capName = captureFile ?? name;
   final testdata = _findTestdata();
   if (testdata == null) {
     // ignore: avoid_print
-    print('SKIP $name: no testdata '
+    print('SKIP $capName: no testdata '
         '(set PIRATETOK_TESTDATA or clone live-testdata)');
     return;
   }
 
   final (capturesDir, manifestsDir) = testdata;
-  final capPath = '$capturesDir/$name.bin';
+  final capPath = '$capturesDir/$capName.bin';
   final manPath = '$manifestsDir/$name.json';
 
   if (!File(capPath).existsSync()) {
     // ignore: avoid_print
-    print('SKIP $name: capture not found at $capPath');
+    print('SKIP $capName: capture not found at $capPath');
     return;
   }
   if (!File(manPath).existsSync()) {
     // ignore: avoid_print
-    print('SKIP $name: manifest not found at $manPath');
+    print('SKIP $capName: manifest not found at $manPath');
     return;
   }
 
@@ -472,7 +473,7 @@ void _runCaptureTest(String name) {
   final frames = _readCapture(capPath);
   final result = _replay(frames);
 
-  _assertReplay(name, result, manifest);
+  _assertReplay(capName, result, manifest);
 }
 
 void main() {
@@ -480,4 +481,15 @@ void main() {
   test('replay happyhappygaltv', () => _runCaptureTest('happyhappygaltv'));
   test('replay fox4newsdallasfortworth',
       () => _runCaptureTest('fox4newsdallasfortworth'));
+
+  // Raw (uncompressed) capture variants -- same manifests, gzip already
+  // stripped from PushFrame payloads.
+  test('replay calvinterest6 (raw)',
+      () => _runCaptureTest('calvinterest6', captureFile: 'calvinterest6_raw'));
+  test('replay happyhappygaltv (raw)',
+      () => _runCaptureTest('happyhappygaltv',
+          captureFile: 'happyhappygaltv_raw'));
+  test('replay fox4newsdallasfortworth (raw)',
+      () => _runCaptureTest('fox4newsdallasfortworth',
+          captureFile: 'fox4newsdallasfortworth_raw'));
 }
