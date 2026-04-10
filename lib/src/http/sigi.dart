@@ -55,8 +55,12 @@ Future<SigiProfile> scrapeProfile(
   String proxy = '',
   String? userAgent,
   String cookies = '',
+  String? language,
+  String? region,
 }) async {
   final ua = userAgent ?? randomUa();
+  final lang = language ?? systemLanguage();
+  final reg = region ?? systemRegion();
   final clean = username.trim().replaceFirst(RegExp(r'^@'), '').toLowerCase();
   final cookieHeader = _buildCookie(ttwid, cookies);
 
@@ -71,7 +75,7 @@ Future<SigiProfile> scrapeProfile(
     final request = await client.getUrl(Uri.parse('https://www.tiktok.com/@$clean'));
     request.headers.set('User-Agent', ua);
     request.headers.set('Cookie', cookieHeader);
-    request.headers.set('Accept-Language', 'en-US,en;q=0.9');
+    request.headers.set('Accept-Language', '$lang-$reg,$lang;q=0.9');
 
     final response = await request.close().timeout(timeout);
     final html = await response.transform(utf8.decoder).join();

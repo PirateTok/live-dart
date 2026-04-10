@@ -28,16 +28,22 @@ class ProfileCache {
   final String? _userAgent;
   final String _cookies;
   final String _proxy;
+  final String? _language;
+  final String? _region;
 
   ProfileCache({
     int ttlMs = _defaultTtlMs,
     String? userAgent,
     String cookies = '',
     String proxy = '',
+    String? language,
+    String? region,
   })  : _ttlMs = ttlMs,
         _userAgent = userAgent,
         _cookies = cookies,
-        _proxy = proxy;
+        _proxy = proxy,
+        _language = language,
+        _region = region;
 
   /// Fetch a profile, returning cached data if available and not expired.
   Future<SigiProfile> fetch(String username) async {
@@ -60,6 +66,8 @@ class ProfileCache {
         userAgent: _userAgent,
         cookies: _cookies,
         proxy: _proxy,
+        language: _language,
+        region: _region,
       );
       _entries[key] = _CacheEntry.ok(profile);
       return profile;

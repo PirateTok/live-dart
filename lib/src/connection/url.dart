@@ -2,10 +2,17 @@ import 'dart:math';
 
 import '../http/ua.dart';
 
-String buildWssUrl(String cdnHost, String roomId) {
+String buildWssUrl(
+  String cdnHost,
+  String roomId, {
+  String? language,
+  String? region,
+}) {
   final rng = Random();
   final lastRtt = (100 + rng.nextDouble() * 100).toStringAsFixed(3);
   final tz = systemTimezone();
+  final lang = language ?? systemLanguage();
+  final reg = region ?? systemRegion();
 
   final params = {
     'version_code': '180800',
@@ -13,7 +20,7 @@ String buildWssUrl(String cdnHost, String roomId) {
     'cookie_enabled': 'true',
     'screen_width': '1920',
     'screen_height': '1080',
-    'browser_language': 'en-US',
+    'browser_language': '$lang-$reg',
     'browser_platform': 'Linux x86_64',
     'browser_name': 'Mozilla',
     'browser_version': '5.0 (X11)',
@@ -23,11 +30,11 @@ String buildWssUrl(String cdnHost, String roomId) {
     'sup_ws_ds_opt': '1',
     'update_version_code': '2.0.0',
     'compress': 'gzip',
-    'webcast_language': 'en',
+    'webcast_language': lang,
     'ws_direct': '1',
     'aid': '1988',
     'live_id': '12',
-    'app_language': 'en',
+    'app_language': lang,
     'client_enter': '1',
     'room_id': roomId,
     'identity': 'audience',

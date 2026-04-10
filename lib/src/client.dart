@@ -18,6 +18,8 @@ class TikTokLiveClient {
   String _proxy = '';
   String? _userAgent;
   String? _cookies;
+  String? _language;
+  String? _region;
   Completer<void>? _stop;
   final _listeners = <String, List<void Function(TikTokEvent)>>{};
 
@@ -77,6 +79,24 @@ class TikTokLiveClient {
     return this;
   }
 
+  /// Override the language for all requests (HTTP query params, Accept-Language header).
+  ///
+  /// When not set, detected from the system locale via [systemLanguage()],
+  /// falling back to `'en'` if detection fails.
+  TikTokLiveClient language(String lang) {
+    _language = lang;
+    return this;
+  }
+
+  /// Override the region for all requests (browser_language param, Accept-Language header).
+  ///
+  /// When not set, detected from the system locale via [systemRegion()],
+  /// falling back to `'US'` if detection fails.
+  TikTokLiveClient region(String reg) {
+    _region = reg;
+    return this;
+  }
+
   /// Register an event listener for the given event type.
   void on(String eventType, void Function(TikTokEvent) handler) {
     _listeners.putIfAbsent(eventType, () => []).add(handler);
@@ -98,6 +118,8 @@ class TikTokLiveClient {
       timeout: _timeout,
       proxy: _proxy,
       userAgent: _userAgent,
+      language: _language,
+      region: _region,
     );
     _stop = Completer<void>();
     _emit(TikTokEvent(
@@ -113,7 +135,12 @@ class TikTokLiveClient {
         proxy: _proxy,
         userAgent: _userAgent,
       );
-      final wssUrl = buildWssUrl(_cdnHost, room.roomId);
+      final wssUrl = buildWssUrl(
+        _cdnHost,
+        room.roomId,
+        language: _language,
+        region: _region,
+      );
 
       var isDeviceBlocked = false;
       try {
@@ -128,6 +155,8 @@ class TikTokLiveClient {
           proxy: _proxy,
           userAgent: _userAgent,
           cookies: _cookies,
+          language: _language,
+          region: _region,
         );
       } on DeviceBlockedError {
         isDeviceBlocked = true;

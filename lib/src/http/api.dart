@@ -47,15 +47,19 @@ Future<RoomIdResult> checkOnline(
   Duration timeout = const Duration(seconds: 10),
   String proxy = '',
   String? userAgent,
+  String? language,
+  String? region,
 }) async {
   final ua = userAgent ?? randomUa();
+  final lang = language ?? systemLanguage();
+  final reg = region ?? systemRegion();
   final clean = username.trim().replaceFirst(RegExp(r'^@'), '');
   final params = {
     'aid': '1988',
     'app_name': 'tiktok_web',
     'device_platform': 'web_pc',
-    'app_language': 'en',
-    'browser_language': 'en-US',
+    'app_language': lang,
+    'browser_language': '$lang-$reg',
     'user_is_login': 'false',
     'sourceType': '54',
     'staleTime': '600000',
@@ -118,15 +122,19 @@ Future<RoomInfo> fetchRoomInfo(
   String cookies = '',
   String proxy = '',
   String? userAgent,
+  String? language,
+  String? region,
 }) async {
   final ua = userAgent ?? randomUa();
+  final lang = language ?? systemLanguage();
+  final reg = region ?? systemRegion();
   final tz = systemTimezone();
   final params = {
     'aid': '1988',
     'app_name': 'tiktok_web',
     'device_platform': 'web_pc',
-    'app_language': 'en',
-    'browser_language': 'en-US',
+    'app_language': lang,
+    'browser_language': '$lang-$reg',
     'browser_name': 'Mozilla',
     'browser_online': 'true',
     'browser_platform': 'Linux x86_64',
@@ -134,7 +142,7 @@ Future<RoomInfo> fetchRoomInfo(
     'screen_height': '1080',
     'screen_width': '1920',
     'tz_name': tz,
-    'webcast_language': 'en',
+    'webcast_language': lang,
     'room_id': roomId,
   };
 

@@ -26,8 +26,12 @@ Future<void> connectWss({
   String proxy = '',
   String? userAgent,
   String? cookies,
+  String? language,
+  String? region,
 }) async {
   final ua = userAgent ?? randomUa();
+  final lang = language ?? systemLanguage();
+  final reg = region ?? systemRegion();
   final cookieHeader =
       cookies != null ? 'ttwid=$ttwid; $cookies' : 'ttwid=$ttwid';
 
@@ -36,7 +40,7 @@ Future<void> connectWss({
     'Cookie': cookieHeader,
     'Origin': 'https://www.tiktok.com',
     'Referer': 'https://www.tiktok.com/',
-    'Accept-Language': 'en-US,en;q=0.9',
+    'Accept-Language': '$lang-$reg,$lang;q=0.9',
     'Accept-Encoding': 'gzip, deflate',
     'Cache-Control': 'no-cache',
   };
