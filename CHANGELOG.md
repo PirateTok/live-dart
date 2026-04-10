@@ -1,3 +1,19 @@
+## 0.1.5
+
+- Add `.language()` and `.region()` builder methods for locale override
+- Use detected system locale everywhere (HTTP, WSS, SIGI) with en-US as fallback only
+- Thread locale from client config through all transports
+
+## 0.1.4
+
+- Fix RoomVerifyMessage proto name prefix
+- Add WSS CONNECT tunnel proxy support
+- Add gift_streak example
+
+## 0.1.3
+
+- Publish to pub.dev
+
 ## 0.1.0
 
 - Initial release
