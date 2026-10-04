@@ -6,6 +6,7 @@ library;
 
 export 'src/client.dart' show TikTokLiveClient;
 export 'src/errors.dart';
+export 'src/events/gift.dart' show diamondTotal, isComboGift, isStreakOver;
 export 'src/events/room_user_seq.dart' show topViewers;
 export 'src/events/types.dart' show EventType, TikTokEvent;
 export 'src/helpers/gift_streak.dart' show GiftStreakTracker, GiftStreakEvent;

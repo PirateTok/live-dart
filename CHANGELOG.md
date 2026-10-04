@@ -7,6 +7,7 @@
 - `heartbeatInterval()` builder (default 10 s), also fed into the `heartbeat_duration` WSS URL param.
 - `RoomIdResult.anchorId`; `RoomInfo.rawJson`.
 - `roomUserSeq` decodes `ranksList`, `seatsList`, `anonymous`; `total` renamed `viewerCount`. New `topViewers(data)`.
+- Gift helpers `isComboGift(data)`, `isStreakOver(data)`, `diamondTotal(data)`.
 - `fetchRoomAudience` (full viewer roster, login-gated) + `SessionRequiredError` / `InvalidResponseError`; `audience` example.
 - `unknown` events carry the raw `payload` bytes.
 - `.compress()` builder (from the unreleased tree).
