@@ -1,5 +1,13 @@
 ## 0.2.0
 
+Breaking:
+- `RoomIdResult(roomId)` → `RoomIdResult(roomId, anchorId)`; `RoomInfo` gains `rawJson`.
+- `roomUserSeq` data key `total` → `viewerCount`.
+- `unknown` event data gains `payload`.
+- Replay tests fail (instead of passing) when testdata is missing.
+
+Changes:
+
 - ttwid fetch retries up to 8× (750 ms apart) when TikTok omits the cookie; transport errors still propagate.
 - Reconnect loop: a ttwid or WSS failure is a failed attempt (`reconnecting`, backoff) instead of aborting `connect()`.
 - ttwid + UA are reused across reconnects (same UA for ttwid and WSS) and rotated only on DEVICE_BLOCKED
