@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import '../connection/proxy.dart';
 import '../http/ua.dart';
 
 /// TikTok only sets ttwid on ~1 in 5-8 anonymous GETs — retry when it's absent.
@@ -18,10 +19,7 @@ Future<String> fetchTtwid({
 }) async {
   final client = HttpClient();
   try {
-    if (proxy.isNotEmpty) {
-      final proxyUri = Uri.parse(proxy);
-      client.findProxy = (_) => 'PROXY ${proxyUri.host}:${proxyUri.port}';
-    }
+    if (proxy.isNotEmpty) applyProxy(client, proxy);
     client.connectionTimeout = timeout;
     return await fetchTtwidFrom(
       client,

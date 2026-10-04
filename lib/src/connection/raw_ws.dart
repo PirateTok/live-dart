@@ -5,6 +5,7 @@ import 'dart:math';
 import 'dart:typed_data';
 
 import '../errors.dart';
+import 'proxy.dart';
 
 /// Raw WebSocket client — bypasses dart:io's WebSocket for full frame control.
 ///
@@ -29,10 +30,11 @@ class RawWebSocket {
   /// Stream of binary messages received from the server.
   Stream<Uint8List> get stream => _events.stream;
 
-  /// Connect to a WSS URL via manual TLS + HTTP upgrade.
+  /// Connect to a `wss://` (TLS) or `ws://` URL via manual HTTP upgrade.
   ///
-  /// When [proxy] is non-empty, opens a CONNECT tunnel through the proxy
-  /// before upgrading to TLS + WebSocket. Supports http:// and https:// proxies.
+  /// When [proxy] is non-empty, tunnels through it first: HTTP CONNECT for
+  /// `http://` / `https://` proxies, SOCKS5 for `socks5://` (credentials from
+  /// `user:pass@` in both cases).
   ///
   /// Throws [DeviceBlockedError] on DEVICE_BLOCKED handshake rejection.
   /// Throws [SocketException] on connection or upgrade failure.
@@ -42,18 +44,30 @@ class RawWebSocket {
     String proxy = '',
   }) async {
     final uri = Uri.parse(url);
+    final secure = uri.scheme == 'wss';
     final host = uri.host;
-    final socket = proxy.isNotEmpty
-        ? await _connectViaProxy(proxy, host)
-        : await SecureSocket.connect(host, 443);
+    final port = uri.hasPort ? uri.port : (secure ? 443 : 80);
+
+    final Socket socket;
+    StreamSubscription<Uint8List>? tunnelSub;
+    if (proxy.isEmpty) {
+      socket = secure ? await SecureSocket.connect(host, port) : await Socket.connect(host, port);
+    } else if (secure) {
+      socket = await openSecureTunnel(Uri.parse(proxy), host, port);
+    } else {
+      final tunnel = await openTunnel(Uri.parse(proxy), host, port);
+      socket = tunnel.socket;
+      tunnelSub = tunnel.sub;
+    }
 
     final rng = Random();
     final wsKey = base64Encode(List.generate(16, (_) => rng.nextInt(256)));
     final path = uri.hasQuery ? '${uri.path}?${uri.query}' : uri.path;
+    final hostHeader = uri.hasPort ? '$host:$port' : host;
 
     final req = StringBuffer()
       ..write('GET $path HTTP/1.1\r\n')
-      ..write('Host: $host\r\n')
+      ..write('Host: $hostHeader\r\n')
       ..write('Upgrade: websocket\r\n')
       ..write('Connection: Upgrade\r\n')
       ..write('Sec-WebSocket-Key: $wsKey\r\n')
@@ -70,8 +84,7 @@ class RawWebSocket {
     final hdrBuf = <int>[];
     final ready = Completer<void>();
 
-    socket.listen(
-      (chunk) {
+    void onData(Uint8List chunk) {
         if (upgrading) {
           hdrBuf.addAll(chunk);
           final str = utf8.decode(hdrBuf, allowMalformed: true);
@@ -104,74 +117,36 @@ class RawWebSocket {
           ws._buf.addAll(chunk);
           ws._drain();
         }
-      },
-      onError: (Object e) {
-        if (!ready.isCompleted) ready.completeError(e);
-        if (!ws._events.isClosed) ws._events.addError(e);
-      },
-      onDone: () {
-        if (!ready.isCompleted) {
-          ready.completeError(
-            const SocketException('connection closed during ws upgrade'),
-          );
-        }
-        if (!ws._events.isClosed) ws._events.close();
-      },
-    );
+    }
+
+    void onError(Object e) {
+      if (!ready.isCompleted) ready.completeError(e);
+      if (!ws._events.isClosed) ws._events.addError(e);
+    }
+
+    void onDone() {
+      if (!ready.isCompleted) {
+        ready.completeError(
+          const SocketException('connection closed during ws upgrade'),
+        );
+      }
+      if (!ws._events.isClosed) ws._events.close();
+    }
+
+    // a plain tunnel already has the socket's only subscription: take it over
+    final sub = tunnelSub;
+    if (sub != null) {
+      sub
+        ..onData(onData)
+        ..onError(onError)
+        ..onDone(onDone)
+        ..resume();
+    } else {
+      socket.listen(onData, onError: onError, onDone: onDone);
+    }
 
     await ready.future;
     return ws;
-  }
-
-  /// Open a CONNECT tunnel through an HTTP proxy, then upgrade to TLS.
-  static Future<SecureSocket> _connectViaProxy(
-    String proxyUrl,
-    String targetHost,
-  ) async {
-    final proxyUri = Uri.parse(proxyUrl);
-    final proxyHost = proxyUri.host;
-    final proxyPort = proxyUri.hasPort ? proxyUri.port : 8080;
-
-    final plain = await Socket.connect(proxyHost, proxyPort);
-    plain.write('CONNECT $targetHost:443 HTTP/1.1\r\n'
-        'Host: $targetHost:443\r\n\r\n');
-    await plain.flush();
-
-    // Read CONNECT response. The proxy sends a short HTTP response then the
-    // tunnel is established. We listen chunk-by-chunk until we see \r\n\r\n.
-    final buf = <int>[];
-    final done = Completer<void>();
-    final sub = plain.listen(
-      (chunk) {
-        buf.addAll(chunk);
-        if (utf8.decode(buf, allowMalformed: true).contains('\r\n\r\n')) {
-          done.complete();
-        }
-      },
-      onError: (Object e) {
-        if (!done.isCompleted) done.completeError(e);
-      },
-      onDone: () {
-        if (!done.isCompleted) {
-          done.completeError(
-            const SocketException('proxy closed before CONNECT response'),
-          );
-        }
-      },
-    );
-
-    await done.future;
-    await sub.cancel();
-
-    final status = utf8.decode(buf, allowMalformed: true);
-    if (!status.startsWith('HTTP/1.1 200') &&
-        !status.startsWith('HTTP/1.0 200')) {
-      plain.destroy();
-      throw SocketException('proxy CONNECT failed: '
-          '${status.split('\r\n').first}');
-    }
-
-    return SecureSocket.secure(plain, host: targetHost);
   }
 
   /// Send a binary message.

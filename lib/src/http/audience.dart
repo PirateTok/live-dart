@@ -3,6 +3,7 @@ import 'dart:io';
 
 import '../errors.dart';
 import 'api.dart';
+import '../connection/proxy.dart';
 import 'ua.dart';
 
 const _statusSessionRequired = 20003;
@@ -103,10 +104,7 @@ Future<RoomAudience> fetchRoomAudience(
 
   final client = HttpClient();
   try {
-    if (proxy.isNotEmpty) {
-      final proxyUri = Uri.parse(proxy);
-      client.findProxy = (_) => 'PROXY ${proxyUri.host}:${proxyUri.port}';
-    }
+    if (proxy.isNotEmpty) applyProxy(client, proxy);
     client.connectionTimeout = timeout;
     final request = await client.getUrl(uri);
     request.headers.set('User-Agent', userAgent ?? randomUa());

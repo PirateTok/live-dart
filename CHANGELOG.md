@@ -1,3 +1,20 @@
+## 0.2.1
+
+Fixes (found by new offline fake-proxy / fake-webcast tests):
+- WSS through an HTTP proxy cancelled the socket's only subscription and then re-listened, which a
+  single-subscription socket cannot do; the tunnel now keeps one subscription (paused, then handed over).
+- WSS proxy dropped `user:pass@` credentials and spoke HTTP CONNECT to `socks5://` proxies. New shared proxy
+  module: HTTP CONNECT with Basic auth, SOCKS5 with user/pass auth; unknown schemes fail with `ArgumentError`.
+- HTTP calls (ttwid, API, SIGI, audience) dropped proxy credentials and could not use SOCKS5; both work now
+  (SOCKS5 via `HttpClient.connectionFactory`).
+- `RawWebSocket` always dialed TLS on port 443; it now honours `ws://` / `wss://` and explicit ports.
+- Proxy URLs without a port default to 80 / 443 / 1080 instead of 8080.
+
+Tests: refusing CONNECT + SOCKS5 proxies (ttwid, API, WSS, credentials), tunnelling CONNECT + SOCKS5 proxies
+carrying a full session, fake webcast server (heartbeat, enter_room, ack log_id + binary internal_ext, UA /
+cookies / Accept-Language / locale / compress / heartbeat_duration on the wire), client-level reconnect loop
+(reconnecting×N → disconnected once, rotation, stop).
+
 ## 0.2.0
 
 Breaking:

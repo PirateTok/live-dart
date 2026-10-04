@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import '../errors.dart';
+import '../connection/proxy.dart';
 import 'ua.dart';
 
 class SigiProfile {
@@ -66,10 +67,7 @@ Future<SigiProfile> scrapeProfile(
 
   final client = HttpClient();
   try {
-    if (proxy.isNotEmpty) {
-      final proxyUri = Uri.parse(proxy);
-      client.findProxy = (_) => 'PROXY ${proxyUri.host}:${proxyUri.port}';
-    }
+    if (proxy.isNotEmpty) applyProxy(client, proxy);
     client.connectionTimeout = timeout;
 
     final request = await client.getUrl(Uri.parse('https://www.tiktok.com/@$clean'));

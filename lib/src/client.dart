@@ -155,47 +155,20 @@ class TikTokLiveClient {
       room.roomId,
     ));
 
-    // ttwid + UA are fetched once and reused across reconnects; rotated only on
-    // DEVICE_BLOCKED, a ttwid failure, or a connection that died young.
-    final budget = ReconnectBudget(_maxRetries);
-    _Session? held;
-    while (!_stopped) {
-      held ??= await _freshSession();
-      final session = held;
-      var exit = SessionExit.noTtwid;
-      var lived = Duration.zero;
-      if (session != null) {
-        final started = DateTime.now();
-        exit = await _runSession(room.roomId, session);
-        lived = DateTime.now().difference(started);
-      }
-      if (_stopped) break;
-
-      final judgement = judge(exit, lived);
-      if (judgement.rotate) held = null;
-      final verdict = budget.record(judgement.end);
-      if (verdict.giveUp) break;
-
-      _emit(TikTokEvent(
-        EventType.reconnecting,
-        {
-          'attempt': verdict.attempt,
-          'max_retries': _maxRetries,
-          'delay': verdict.delay.inSeconds,
-        },
-        room.roomId,
-      ));
-      await Future.any([Future<void>.delayed(verdict.delay), _stop!.future]);
-    }
-
-    _emit(TikTokEvent(EventType.disconnected, null, room.roomId));
+    await runReconnectLoop(
+      roomId: room.roomId,
+      maxRetries: _maxRetries,
+      fresh: _freshSession,
+      run: (session) => _runSession(room.roomId, session),
+      delay: (d) => Future<void>.delayed(d),
+      emit: _emit,
+      stop: _stop!,
+    );
     return room.roomId;
   }
 
-  bool get _stopped => _stop?.isCompleted ?? true;
-
   /// Returns null when the ttwid fetch failed — a failed attempt, not an abort.
-  Future<_Session?> _freshSession() async {
+  Future<LiveSession?> _freshSession() async {
     final ua = _userAgent ?? randomUa();
     try {
       final ttwid =
@@ -207,7 +180,7 @@ class TikTokLiveClient {
     }
   }
 
-  Future<SessionExit> _runSession(String roomId, _Session session) async {
+  Future<SessionExit> _runSession(String roomId, LiveSession session) async {
     final wssUrl = buildWssUrl(
       _cdnHost,
       roomId,
@@ -248,5 +221,3 @@ class TikTokLiveClient {
     }
   }
 }
-
-typedef _Session = ({String ttwid, String ua});

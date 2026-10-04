@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import '../errors.dart';
+import '../connection/proxy.dart';
 import 'ua.dart';
 
 class RoomIdResult {
@@ -74,10 +75,7 @@ Future<RoomIdResult> checkOnline(
   final uri = Uri.https('www.tiktok.com', '/api-live/user/room', params);
   final client = HttpClient();
   try {
-    if (proxy.isNotEmpty) {
-      final proxyUri = Uri.parse(proxy);
-      client.findProxy = (_) => 'PROXY ${proxyUri.host}:${proxyUri.port}';
-    }
+    if (proxy.isNotEmpty) applyProxy(client, proxy);
     client.connectionTimeout = timeout;
 
     final request = await client.getUrl(uri);
@@ -160,10 +158,7 @@ Future<RoomInfo> fetchRoomInfo(
   final uri = Uri.https('webcast.tiktok.com', '/webcast/room/info/', params);
   final client = HttpClient();
   try {
-    if (proxy.isNotEmpty) {
-      final proxyUri = Uri.parse(proxy);
-      client.findProxy = (_) => 'PROXY ${proxyUri.host}:${proxyUri.port}';
-    }
+    if (proxy.isNotEmpty) applyProxy(client, proxy);
     client.connectionTimeout = timeout;
 
     final request = await client.getUrl(uri);
