@@ -8,6 +8,7 @@ String buildWssUrl(
   String? language,
   String? region,
   bool compress = true,
+  Duration heartbeatInterval = const Duration(seconds: 10),
 }) {
   final rng = Random();
   final lastRtt = (100 + rng.nextDouble() * 100).toStringAsFixed(3);
@@ -41,7 +42,7 @@ String buildWssUrl(
     'identity': 'audience',
     'history_comment_count': '6',
     'last_rtt': lastRtt,
-    'heartbeat_duration': '10000',
+    'heartbeat_duration': '${heartbeatInterval.inMilliseconds}',
     'resp_content_type': 'protobuf',
     'did_rule': '3',
   };

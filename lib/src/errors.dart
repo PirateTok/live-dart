@@ -30,6 +30,17 @@ class TikTokApiError extends PirateTokError {
   TikTokApiError(this.code) : super('tiktok API error: statusCode=$code');
 }
 
+/// The endpoint needs a logged-in session: pass session cookies
+/// (`sessionid=xxx; sid_tt=xxx`) to the call that threw this.
+class SessionRequiredError extends PirateTokError {
+  SessionRequiredError(String reason) : super('session required: $reason');
+}
+
+/// TikTok answered, but not with something we can use.
+class InvalidResponseError extends PirateTokError {
+  InvalidResponseError(String reason) : super('invalid response: $reason');
+}
+
 class DeviceBlockedError extends PirateTokError {
   const DeviceBlockedError()
       : super('device blocked — ttwid was flagged, fetch a fresh one');

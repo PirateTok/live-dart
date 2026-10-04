@@ -427,13 +427,27 @@ DecodedMessage decodeSocial(ProtoMap m) {
   );
 }
 
+Map<String, dynamic> _contributor(ProtoMap c) {
+  final user = c.getMessage(2);
+  return {
+    'score': c.getVarint(1),
+    'user': user != null ? User.fromProto(user).toJson() : null,
+    'rank': c.getVarint(3),
+    'delta': c.getVarint(4),
+  };
+}
+
+/// viewerCount = in the room right now; totalUser = unique viewers over the whole stream.
 DecodedMessage decodeRoomUserSeq(ProtoMap m) => (
       type: 'WebcastRoomUserSeqMessage',
       data: {
-        'total': m.getVarint(3),
+        'ranksList': m.getRepeatedMessage(2).map(_contributor).toList(),
+        'viewerCount': m.getVarint(3),
         'popStr': m.getString(4),
+        'seatsList': m.getRepeatedMessage(5).map(_contributor).toList(),
         'popularity': m.getVarint(6),
         'totalUser': m.getVarint(7),
+        'anonymous': m.getVarint(8),
       }
     );
 

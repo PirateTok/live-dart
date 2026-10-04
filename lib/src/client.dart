@@ -6,6 +6,8 @@ import 'connection/wss.dart';
 import 'errors.dart';
 import 'events/types.dart';
 import 'http/api.dart';
+import 'http/ua.dart';
+import 'reconnect.dart';
 
 const _defaultCdn = 'webcast-ws.tiktok.com';
 
@@ -13,6 +15,7 @@ class TikTokLiveClient {
   final String _username;
   String _cdnHost = _defaultCdn;
   Duration _timeout = const Duration(seconds: 10);
+  Duration _heartbeatInterval = const Duration(seconds: 10);
   int _maxRetries = 5;
   Duration _staleTimeout = const Duration(seconds: 60);
   String _proxy = '';
@@ -46,6 +49,14 @@ class TikTokLiveClient {
     return this;
   }
 
+  /// Interval between WSS heartbeats (default 10s). Also sent to TikTok as the
+  /// `heartbeat_duration` URL param (ms).
+  TikTokLiveClient heartbeatInterval(Duration d) {
+    _heartbeatInterval = d;
+    return this;
+  }
+
+  /// Max consecutive failed attempts (default 5); a 30s healthy session resets the count.
   TikTokLiveClient maxRetries(int n) {
     _maxRetries = n;
     return this;
@@ -123,7 +134,11 @@ class TikTokLiveClient {
     }
   }
 
-  /// Connect to TikTok Live with auto-reconnection. Returns room_id.
+  /// Connect to TikTok Live with auto-reconnection.
+  ///
+  /// Runs the whole session: the future completes with the room_id only after
+  /// the final disconnect ([disconnect] or max retries exhausted). Listen for
+  /// [EventType.connected] to know when the room was resolved.
   Future<String> connect() async {
     final room = await checkOnline(
       _username,
@@ -140,62 +155,90 @@ class TikTokLiveClient {
       room.roomId,
     ));
 
-    var attempt = 0;
-    while (!(_stop?.isCompleted ?? true)) {
-      final ttwid = await fetchTtwid(
-        timeout: _timeout,
-        proxy: _proxy,
-        userAgent: _userAgent,
-      );
-      final wssUrl = buildWssUrl(
-        _cdnHost,
-        room.roomId,
-        language: _language,
-        region: _region,
-        compress: _compress,
-      );
-
-      var isDeviceBlocked = false;
-      try {
-        await connectWss(
-          wssUrl: wssUrl,
-          ttwid: ttwid,
-          roomId: room.roomId,
-          onEvent: _emit,
-          onError: (e) => _emit(TikTokEvent('error', {'error': '$e'})),
-          stopSignal: _stop!,
-          staleTimeout: _staleTimeout,
-          proxy: _proxy,
-          userAgent: _userAgent,
-          cookies: _cookies,
-          language: _language,
-          region: _region,
-        );
-      } on DeviceBlockedError {
-        isDeviceBlocked = true;
+    // ttwid + UA are fetched once and reused across reconnects; rotated only on
+    // DEVICE_BLOCKED, a ttwid failure, or a connection that died young.
+    final budget = ReconnectBudget(_maxRetries);
+    _Session? held;
+    while (!_stopped) {
+      held ??= await _freshSession();
+      final session = held;
+      var exit = SessionExit.noTtwid;
+      var lived = Duration.zero;
+      if (session != null) {
+        final started = DateTime.now();
+        exit = await _runSession(room.roomId, session);
+        lived = DateTime.now().difference(started);
       }
+      if (_stopped) break;
 
-      if (_stop?.isCompleted ?? true) break;
+      final judgement = judge(exit, lived);
+      if (judgement.rotate) held = null;
+      final verdict = budget.record(judgement.end);
+      if (verdict.giveUp) break;
 
-      attempt++;
-      if (attempt > _maxRetries) break;
-
-      final delay =
-          isDeviceBlocked ? 2 : _backoffSeconds(attempt).clamp(2, 30);
       _emit(TikTokEvent(
         EventType.reconnecting,
         {
-          'attempt': attempt,
+          'attempt': verdict.attempt,
           'max_retries': _maxRetries,
-          'delay': delay,
+          'delay': verdict.delay.inSeconds,
         },
         room.roomId,
       ));
-      await Future<void>.delayed(Duration(seconds: delay));
+      await Future.any([Future<void>.delayed(verdict.delay), _stop!.future]);
     }
 
     _emit(TikTokEvent(EventType.disconnected, null, room.roomId));
     return room.roomId;
+  }
+
+  bool get _stopped => _stop?.isCompleted ?? true;
+
+  /// Returns null when the ttwid fetch failed — a failed attempt, not an abort.
+  Future<_Session?> _freshSession() async {
+    final ua = _userAgent ?? randomUa();
+    try {
+      final ttwid =
+          await fetchTtwid(timeout: _timeout, proxy: _proxy, userAgent: ua);
+      return (ttwid: ttwid, ua: ua);
+    } on Object catch (e) {
+      _emit(TikTokEvent('error', {'error': 'ttwid acquisition failed: $e'}));
+      return null;
+    }
+  }
+
+  Future<SessionExit> _runSession(String roomId, _Session session) async {
+    final wssUrl = buildWssUrl(
+      _cdnHost,
+      roomId,
+      language: _language,
+      region: _region,
+      compress: _compress,
+      heartbeatInterval: _heartbeatInterval,
+    );
+    try {
+      await connectWss(
+        wssUrl: wssUrl,
+        ttwid: session.ttwid,
+        roomId: roomId,
+        onEvent: _emit,
+        onError: (e) => _emit(TikTokEvent('error', {'error': '$e'})),
+        stopSignal: _stop!,
+        heartbeatInterval: _heartbeatInterval,
+        staleTimeout: _staleTimeout,
+        proxy: _proxy,
+        userAgent: session.ua,
+        cookies: _cookies,
+        language: _language,
+        region: _region,
+      );
+      return SessionExit.closed;
+    } on DeviceBlockedError {
+      return SessionExit.deviceBlocked;
+    } on Object catch (e) {
+      _emit(TikTokEvent('error', {'error': 'websocket error: $e'}));
+      return SessionExit.errored;
+    }
   }
 
   /// Clean disconnect — exits the reconnect loop.
@@ -204,6 +247,6 @@ class TikTokLiveClient {
       _stop!.complete();
     }
   }
-
-  static int _backoffSeconds(int attempt) => 1 << attempt; // 2,4,8,16,...
 }
+
+typedef _Session = ({String ttwid, String ua});

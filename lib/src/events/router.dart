@@ -74,16 +74,12 @@ const _methodMap = {
 /// Returns multiple events when sub-routing applies (e.g. Social → Follow).
 List<TikTokEvent> decode(String method, Uint8List payload, String roomId) {
   final eventName = _methodMap[method];
-  if (eventName == null) {
+  final decoded = eventName == null ? null : decodePayload(method, payload);
+  if (eventName == null || decoded == null) {
+    // raw payload kept so nothing is lost — callers can decode Tier C themselves
     return [
-      TikTokEvent(EventType.unknown, {'method': method}, roomId),
-    ];
-  }
-
-  final decoded = decodePayload(method, payload);
-  if (decoded == null) {
-    return [
-      TikTokEvent(EventType.unknown, {'method': method}, roomId),
+      TikTokEvent(
+          EventType.unknown, {'method': method, 'payload': payload}, roomId),
     ];
   }
 

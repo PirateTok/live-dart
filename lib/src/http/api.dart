@@ -6,7 +6,10 @@ import 'ua.dart';
 
 class RoomIdResult {
   final String roomId;
-  const RoomIdResult(this.roomId);
+
+  /// Streamer's user ID (`data.user.id`); feeds [fetchRoomAudience].
+  final String anchorId;
+  const RoomIdResult(this.roomId, this.anchorId);
 }
 
 class StreamUrls {
@@ -31,6 +34,7 @@ class RoomInfo {
   final int likes;
   final int totalUser;
   final StreamUrls? streamUrl;
+  final String rawJson;
 
   const RoomInfo({
     this.title = '',
@@ -38,6 +42,7 @@ class RoomInfo {
     this.likes = 0,
     this.totalUser = 0,
     this.streamUrl,
+    this.rawJson = '',
   });
 }
 
@@ -86,33 +91,39 @@ Future<RoomIdResult> checkOnline(
     }
 
     final body = await response.transform(utf8.decoder).join();
-
-    final Map<String, dynamic> result;
-    try {
-      result = json.decode(body) as Map<String, dynamic>;
-    } on FormatException {
-      throw TikTokBlockedError(httpStatus);
-    }
-
-    final statusCode = result['statusCode'] as int? ?? -1;
-    if (statusCode == 19881007) throw UserNotFoundError(clean);
-    if (statusCode != 0) throw TikTokApiError(statusCode);
-
-    final data = result['data'] as Map<String, dynamic>? ?? {};
-    final user = data['user'] as Map<String, dynamic>? ?? {};
-    final roomId = '${user['roomId'] ?? ''}';
-
-    if (roomId.isEmpty || roomId == '0') throw HostNotOnlineError(clean);
-
-    final liveRoom = data['liveRoom'] as Map<String, dynamic>? ?? {};
-    final liveStatus = liveRoom['status'] as int? ?? 0;
-    final userStatus = user['status'] as int? ?? 0;
-    if (liveStatus != 2 && userStatus != 2) throw HostNotOnlineError(clean);
-
-    return RoomIdResult(roomId);
+    return parseCheckOnline(clean, body, httpStatus);
   } finally {
     client.close();
   }
+}
+
+/// Error mapping for `/api-live/user/room`; empty / mangled / non-JSON bodies
+/// mean TikTok blocked the IP or fingerprint.
+RoomIdResult parseCheckOnline(String username, String body, int httpStatus) {
+  final Object? decoded;
+  try {
+    decoded = json.decode(body);
+  } on FormatException {
+    throw TikTokBlockedError(httpStatus);
+  }
+  if (decoded is! Map<String, dynamic>) throw TikTokBlockedError(httpStatus);
+
+  final statusCode = decoded['statusCode'] as int? ?? -1;
+  if (statusCode == 19881007) throw UserNotFoundError(username);
+  if (statusCode != 0) throw TikTokApiError(statusCode);
+
+  final data = decoded['data'] as Map<String, dynamic>? ?? {};
+  final user = data['user'] as Map<String, dynamic>? ?? {};
+  final roomId = '${user['roomId'] ?? ''}';
+
+  if (roomId.isEmpty || roomId == '0') throw HostNotOnlineError(username);
+
+  final liveRoom = data['liveRoom'] as Map<String, dynamic>? ?? {};
+  final liveStatus = liveRoom['status'] as int? ?? 0;
+  final userStatus = user['status'] as int? ?? 0;
+  if (liveStatus != 2 && userStatus != 2) throw HostNotOnlineError(username);
+
+  return RoomIdResult(roomId, '${user['id'] ?? ''}');
 }
 
 /// Fetch room metadata. Needs cookies for 18+ rooms.
@@ -186,6 +197,7 @@ Future<RoomInfo> fetchRoomInfo(
       likes: (stats['like_count'] as int?) ?? 0,
       totalUser: (stats['total_user'] as int?) ?? 0,
       streamUrl: _parseStreamUrls(data['stream_url']),
+      rawJson: bodyStr,
     );
   } finally {
     client.close();

@@ -2,35 +2,64 @@ import 'dart:io';
 
 import '../http/ua.dart';
 
-/// Fetch a fresh ttwid cookie via anonymous GET to tiktok.com.
+/// TikTok only sets ttwid on ~1 in 5-8 anonymous GETs — retry when it's absent.
+const ttwidFetchAttempts = 8;
+const ttwidRetryDelay = Duration(milliseconds: 750);
+
+final _tiktokUrl = Uri.parse('https://www.tiktok.com/');
+
+/// Fetch a fresh ttwid cookie via anonymous GET to tiktok.com, retrying up to
+/// [ttwidFetchAttempts] times when the response carries no cookie. Transport
+/// errors propagate immediately.
 Future<String> fetchTtwid({
   Duration timeout = const Duration(seconds: 10),
   String proxy = '',
   String? userAgent,
 }) async {
-  final ua = userAgent ?? randomUa();
   final client = HttpClient();
   try {
     if (proxy.isNotEmpty) {
       final proxyUri = Uri.parse(proxy);
-      client.findProxy = (_) =>
-          'PROXY ${proxyUri.host}:${proxyUri.port}';
+      client.findProxy = (_) => 'PROXY ${proxyUri.host}:${proxyUri.port}';
     }
     client.connectionTimeout = timeout;
-    client.userAgent = ua;
+    return await fetchTtwidFrom(
+      client,
+      _tiktokUrl,
+      userAgent: userAgent ?? randomUa(),
+      timeout: timeout,
+      attempts: ttwidFetchAttempts,
+      retryDelay: ttwidRetryDelay,
+    );
+  } finally {
+    client.close();
+  }
+}
 
-    final request = await client.getUrl(Uri.parse('https://www.tiktok.com/'));
+/// Retry core of [fetchTtwid], against any [url] (offline tests use a local server).
+Future<String> fetchTtwidFrom(
+  HttpClient client,
+  Uri url, {
+  required String userAgent,
+  required Duration timeout,
+  required int attempts,
+  required Duration retryDelay,
+}) async {
+  client.userAgent = userAgent;
+  for (var attempt = 1;; attempt++) {
+    final request = await client.getUrl(url);
     request.followRedirects = true;
     final response = await request.close().timeout(timeout);
-    // Drain the response body
     await response.drain<void>();
 
     for (final cookie in response.cookies) {
-      if (cookie.name == 'ttwid') return cookie.value;
+      if (cookie.name == 'ttwid' && cookie.value.isNotEmpty) return cookie.value;
     }
-
-    throw StateError('ttwid: no ttwid cookie in response');
-  } finally {
-    client.close();
+    if (attempt >= attempts) {
+      throw StateError(
+        'ttwid: no ttwid cookie after $attempt attempts (last HTTP ${response.statusCode})',
+      );
+    }
+    await Future<void>.delayed(retryDelay);
   }
 }

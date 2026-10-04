@@ -1,3 +1,18 @@
+## 0.2.0
+
+- ttwid fetch retries up to 8× (750 ms apart) when TikTok omits the cookie; transport errors still propagate.
+- Reconnect loop: a ttwid or WSS failure is a failed attempt (`reconnecting`, backoff) instead of aborting `connect()`.
+- ttwid + UA are reused across reconnects (same UA for ttwid and WSS) and rotated only on DEVICE_BLOCKED
+  or a connection that died within 30 s; `maxRetries` counts consecutive failures, reset after a 30 s healthy session.
+- `heartbeatInterval()` builder (default 10 s), also fed into the `heartbeat_duration` WSS URL param.
+- `RoomIdResult.anchorId`; `RoomInfo.rawJson`.
+- `roomUserSeq` decodes `ranksList`, `seatsList`, `anonymous`; `total` renamed `viewerCount`. New `topViewers(data)`.
+- `fetchRoomAudience` (full viewer roster, login-gated) + `SessionRequiredError` / `InvalidResponseError`; `audience` example.
+- `unknown` events carry the raw `payload` bytes.
+- `.compress()` builder (from the unreleased tree).
+- Replay tests fail on missing testdata instead of passing silently.
+- Homepage: https://piratetok.rosint.org
+
 ## 0.1.5
 
 - Add `.language()` and `.region()` builder methods for locale override

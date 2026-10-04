@@ -12,7 +12,7 @@ void main(List<String> args) async {
 
   try {
     final result = await checkOnline(username);
-    print('LIVE  $username  room_id=${result.roomId}');
+    print('LIVE  $username  room_id=${result.roomId}  anchor_id=${result.anchorId}');
   } on HostNotOnlineError {
     print('OFF   $username');
     exit(1);

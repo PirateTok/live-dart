@@ -8,7 +8,7 @@ import '../http/ua.dart';
 import 'frames.dart';
 import 'raw_ws.dart';
 
-const _heartbeatInterval = Duration(seconds: 10);
+const _defaultHeartbeatInterval = Duration(seconds: 10);
 const _defaultStaleTimeout = Duration(seconds: 60);
 
 /// Connect to TikTok WSS, stream events until stopped or connection drops.
@@ -22,6 +22,7 @@ Future<void> connectWss({
   required void Function(TikTokEvent) onEvent,
   required void Function(Object error) onError,
   required Completer<void> stopSignal,
+  Duration heartbeatInterval = _defaultHeartbeatInterval,
   Duration staleTimeout = _defaultStaleTimeout,
   String proxy = '',
   String? userAgent,
@@ -54,7 +55,7 @@ Future<void> connectWss({
   ws.send(buildEnterRoom(roomId));
 
   // Heartbeat timer
-  final hbTimer = Timer.periodic(_heartbeatInterval, (_) {
+  final hbTimer = Timer.periodic(heartbeatInterval, (_) {
     try {
       ws.send(buildHeartbeat(roomId));
     } on Object {

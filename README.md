@@ -79,7 +79,8 @@ Requires Dart SDK >= 3.0.0. No external dependencies.
 final client = TikTokLiveClient("username_here")
     .cdnEu()                             // EU / US / Global (default)
     .timeout(Duration(seconds: 15))
-    .maxRetries(10)                       // default 5
+    .heartbeatInterval(Duration(seconds: 10)) // default 10s, also sent as heartbeat_duration
+    .maxRetries(10)                       // consecutive failures, default 5 (reset after a 30s healthy session)
     .staleTimeout(Duration(seconds: 90))  // default 60s
     .userAgent("custom UA string")        // default: random from pool
     .cookies("sessionid=xxx; sid_tt=xxx") // only for 18+ room info
@@ -96,7 +97,7 @@ import 'package:piratetok_live/piratetok_live.dart';
 
 // Check if user is live
 final result = await checkOnline("username_here");
-print('room_id: ${result.roomId}');
+print('room_id: ${result.roomId} anchor_id: ${result.anchorId}');
 
 // Fetch room metadata (title, viewers, stream URLs)
 final info = await fetchRoomInfo(result.roomId);
@@ -105,6 +106,32 @@ final info = await fetchRoomInfo(result.roomId);
 final info18 = await fetchRoomInfo(result.roomId,
     cookies: "sessionid=abc; sid_tt=abc");
 ```
+
+## Viewers
+
+Every `roomUserSeq` event carries the counters and the top-viewers box — no cookies needed:
+
+```dart
+client.on(EventType.roomUserSeq, (evt) {
+  evt.data!['viewerCount']; // in the room right now (goes up and down)
+  evt.data!['totalUser'];   // unique viewers over the whole stream (only grows)
+  for (final c in topViewers(evt.data!)) { // usually top 3, sorted by rank
+    print('#${c['rank']} ${(c['user'] as Map)['nickname']} (${c['score']})');
+  }
+});
+```
+
+The full audience roster is a separate call. TikTok gates it behind a login, so session cookies are
+**required for this call only** — without them it throws `SessionRequiredError`:
+
+```dart
+final room = await checkOnline("username_here");
+final audience = await fetchRoomAudience(room.roomId,
+    anchorId: room.anchorId, cookies: "sessionid=abc; sid_tt=abc");
+// audience.total, audience.anonymous, audience.viewers (rank, score, username, followerCount, ...)
+```
+
+Omit `anchorId` to resolve it from room info (one extra request).
 
 ## Helpers
 
@@ -153,10 +180,11 @@ print('${profile.nickname} — ${profile.followerCount} followers');
 ## How it works
 
 1. Resolves username to room ID via TikTok JSON API
-2. Authenticates and opens a direct WSS connection (raw RFC 6455 socket)
-3. Sends protobuf heartbeats every 10s to keep alive
+2. Fetches a ttwid cookie (retried up to 8× — TikTok only sets it intermittently) and opens a direct WSS connection (raw RFC 6455 socket)
+3. Sends protobuf heartbeats every `heartbeatInterval` (10s) to keep alive
 4. Decodes protobuf event stream into typed maps
-5. Auto-reconnects on stale/dropped connections with fresh credentials + UA
+5. Auto-reconnects on stale/dropped connections, reusing ttwid + UA; both rotate only on DEVICE_BLOCKED or a connection that died within 30s
+6. `connect()` runs the whole session — its future completes after the final disconnect; `EventType.connected` fires once the room is resolved
 
 All protobuf encoding/decoding is hand-written -- no `.proto` files, no codegen, no build-time tooling.
 
@@ -168,6 +196,7 @@ dart run example/online_check.dart <username>      # check if user is live
 dart run example/stream_info.dart <username>       # fetch room metadata + stream URLs
 dart run example/gift_streak.dart <username>       # gift combo tracking with diamond totals
 dart run example/profile_lookup.dart [username]    # fetch profile metadata + avatars (cached)
+dart run example/audience.dart <username> "sessionid=...; sid_tt=..."  # full viewer roster (login required)
 ```
 
 ## Replay testing
@@ -179,7 +208,8 @@ git clone https://github.com/PirateTok/live-testdata testdata
 dart test
 ```
 
-Tests skip gracefully if testdata is not found. You can also set `PIRATETOK_TESTDATA` to point to a custom location.
+Replay tests fail if testdata is not found — they never pass on missing data. Set `PIRATETOK_TESTDATA` to point to a custom location.
+Offline unit tests (ttwid retry against a local responder, reconnect budget, top viewers, audience parsing) need no network.
 
 ## License
 

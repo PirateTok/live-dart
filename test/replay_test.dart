@@ -1,8 +1,8 @@
 // Replay test -- reads a binary WSS capture, processes it through the full
 // decode pipeline, and asserts every value matches the manifest JSON.
 //
-// Skips if testdata is not available. Set PIRATETOK_TESTDATA env var or
-// place captures in ../live-testdata/ or ../../live-rs/captures/.
+// Fails if testdata is not available. Set PIRATETOK_TESTDATA env var or
+// place captures/ + manifests/ in the repo's testdata/.
 
 import 'dart:convert';
 import 'dart:io';
@@ -444,34 +444,28 @@ void _assertGifts(String name, _ReplayResult r, Map<String, dynamic> mg) {
 
 void _runCaptureTest(String name, {String? captureFile}) {
   final capName = captureFile ?? name;
+  // missing data is a failure, never a silent pass
   final testdata = _findTestdata();
   if (testdata == null) {
-    // ignore: avoid_print
-    print('SKIP $capName: no testdata '
-        '(set PIRATETOK_TESTDATA or clone live-testdata)');
-    return;
+    fail('$capName: no testdata (set PIRATETOK_TESTDATA or place '
+        'captures/ + manifests/ in testdata/)');
   }
 
   final (capturesDir, manifestsDir) = testdata;
   final capPath = '$capturesDir/$capName.bin';
   final manPath = '$manifestsDir/$name.json';
 
-  if (!File(capPath).existsSync()) {
-    // ignore: avoid_print
-    print('SKIP $capName: capture not found at $capPath');
-    return;
-  }
-  if (!File(manPath).existsSync()) {
-    // ignore: avoid_print
-    print('SKIP $capName: manifest not found at $manPath');
-    return;
-  }
+  if (!File(capPath).existsSync()) fail('$capName: capture not found at $capPath');
+  if (!File(manPath).existsSync()) fail('$capName: manifest not found at $manPath');
 
   final manifestJson = File(manPath).readAsStringSync();
   final manifest = jsonDecode(manifestJson) as Map<String, dynamic>;
 
   final frames = _readCapture(capPath);
+  if (frames.isEmpty) fail('$capName: capture has no frames');
   final result = _replay(frames);
+  // ignore: avoid_print
+  print('$capName: ${frames.length} frames loaded from ${File(capPath).absolute.path}');
 
   _assertReplay(capName, result, manifest);
 }

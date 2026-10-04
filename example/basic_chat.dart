@@ -51,8 +51,14 @@ void main(List<String> args) async {
     print('[like] $nick x${evt.data?['count'] ?? 1}');
   });
 
+  // viewerCount = in the room right now; totalUser = unique viewers over the whole stream
   client.on(EventType.roomUserSeq, (evt) {
-    print('[viewers] ${evt.data?['totalUser'] ?? '?'}');
+    final data = evt.data ?? {};
+    print('[viewers] ${data['viewerCount']} watching, ${data['totalUser']} total unique');
+    for (final c in topViewers(data)) {
+      final user = c['user'] as Map<String, dynamic>;
+      print('  #${c['rank']} ${user['nickname']} (${c['score']})');
+    }
   });
 
   client.on(EventType.liveEnded, (evt) {
